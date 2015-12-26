@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" creationComplete="init()">
+	<mx:Script>
+		<![CDATA[
+			import se.superkrut.player.events.UploadEvent;
+			import mx.controls.Alert;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import se.superkrut.player.model.PlayerModelLocator;
+			import se.superkrut.player.util.CustomFileReferenceList;
+
+			[Bindable]
+			private var model:PlayerModelLocator = PlayerModelLocator.getInstance();
+			private var dispacher:CairngormEventDispatcher = CairngormEventDispatcher.getInstance();
+		]]>
+	</mx:Script>
+	<mx:DataGrid x="0" y="50" width="100%" height="100%" dataProvider="{model.upload.fileObjs_ac}">
+		<mx:columns>
+			<mx:DataGridColumn headerText="Name" dataField="name"/>
+			<mx:DataGridColumn headerText="Bytes" dataField="bytes" width="100"/>
+			<mx:DataGridColumn headerText="Total" dataField="total" width="100"/>
+			<mx:DataGridColumn headerText="Progress" dataField="progress" width="100"/>
+		</mx:columns>
+	</mx:DataGrid>
+	<mx:ComboBox x="66" y="10" dataProvider="{model.catalogs_arr}" change="model.upload.catalog = event.target.value"></mx:ComboBox>
+	<mx:Label x="10" y="12" text="Catalog"/>
+	<mx:TextInput id="folder_ti" x="294" y="10" change="model.upload.folder=folder_ti.text"/>
+	<mx:Label x="249" y="12" text="Folder"/>
+	<mx:Button x="498" y="10" label="Browse" click="dispacher.dispatchEvent(new UploadEvent())"/>
+	<mx:Text x="629" y="12" text="Maxsize seems to be {model.settings.maxUploadSize} / file"/>
+</mx:Canvas>

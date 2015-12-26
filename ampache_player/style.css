@@ -1,0 +1,17 @@
+/* CSS file */
+Application {
+   backgroundColor: #333333;
+   themeColor: #000000;
+   color: #990000;
+}
+
+Tree {
+   rollOverColor: #333333;
+   textRollOverColor: #ffffff;
+   borderStyle: none;
+   selectionColor: #0033ff;
+   color: #333333;
+   textIndent: 16;
+}
+
+

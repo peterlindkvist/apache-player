@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml" width="400" height="500" creationComplete="init();">
+	<mx:Script>
+		<![CDATA[
+			import se.superkrut.player.events.SavePlaylistEvent;
+			import mx.collections.ArrayCollection;
+			import com.adobe.cairngorm.model.ModelLocator;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import se.superkrut.player.model.PlayerModelLocator;
+			import mx.events.SliderEvent;
+			import mx.collections.IList;
+			import mx.events.DragEvent;
+			
+			private var pausePosition:int;
+		
+			[Bindable]
+			private var model:PlayerModelLocator = PlayerModelLocator.getInstance();
+			private var dispacher:CairngormEventDispatcher = CairngormEventDispatcher.getInstance();
+		
+			[Bindable]
+			private var snd:Sound;
+			
+			[Bindable]
+			private var channel:SoundChannel;
+			
+			private var clickTime:Number;
+			private var oldPlaylist:String;
+
+			public function init():void
+			{
+				pausePosition = -1;
+				clickTime = 0;
+				oldPlaylist = "local";
+				model.addEventListener(PlayerModelLocator.EVENT_SET_PLAYITEM, playItemHandler);
+				update();
+			}
+			
+			private function playItemHandler(event:Event):void
+			{
+				if(model.playItem != null)
+				{
+					playlist.selectedItem = model.playItem; //to update after doubleclick from artists.
+
+					loadSong();
+				}
+			}
+			
+			public function loadSong():void
+			{
+				var id:String = model.playItem.id;
+				
+				//var url:String = model.settings.ampache_url+"play/userplay.php?song="+id+"&username="+model.user.username+"&password="+model.user.password;
+				var url:String = "assets.php?user="+model.user.username+"&password="+model.user.password+"&type=mp3&id="+id;
+				
+				if(channel != null) channel.stop();
+				snd = new Sound(new URLRequest(url));
+				channel = snd.play();
+
+				channel.addEventListener(Event.SOUND_COMPLETE, soundComplete);
+
+				update();
+			}
+			
+			private function soundComplete(e:*):void
+			{
+				model.playItem = null;
+				playNext(1);
+			}
+			
+			private function playSound():void
+			{
+				trace(pausePosition+":"+model.playItem+":"+playlist.selectedItem+":"+(model.playItem == playlist.selectedItem))
+				if(pausePosition != -1)
+				{
+					channel.stop();
+					channel = snd.play(pausePosition);
+				}
+				else if(model.playItem == null)
+				{
+					if(playlist.selectedIndex == -1) playlist.selectedIndex = 0;
+					model.playItem = playlist.selectedItem;
+				}
+				else
+				{
+					model.playItem = playlist.selectedItem;
+				}
+					
+
+				pausePosition = -1;
+				update();
+			}
+			
+			private function stopSound():void
+			{
+				if(channel != null)
+				{
+					channel.stop();
+					channel = null;
+				} 
+				model.playItem = null;
+				pausePosition = -1;
+				update();
+			}
+			
+			private function pauseSound():void
+			{
+				pausePosition = channel.position;
+				channel.stop();
+
+				update();
+			}
+			
+			private function playNext(add:int = 1):void
+			{
+				if(random_cb.selected) add = Math.ceil(Math.random()*playlist.dataProvider.length);
+				if(model.playItem != null) channel.stop();	
+				var next:int = playlist.selectedIndex + add;
+				playlist.selectedIndex = next % playlist.dataProvider.length;
+				model.playItem = playlist.selectedItem;
+				pausePosition = -1;
+				update();
+			}
+			
+			private function startDragPosition():void
+			{
+				channel.stop();
+				enablePosition(false);
+			}
+			
+			private function stopDragPosition():void
+			{
+				if(model.playItem != null)
+				{
+					channel = snd.play(position.value*snd.length);
+					enablePosition(true);
+				}
+			}
+			
+			private function playListDrop(e:DragEvent):void
+			{
+				update(true);
+			}
+			
+			private function run(e:Event):void
+			{
+				position.value = channel.position / snd.length;
+				pos.text = formatTime(channel.position)+" / "+formatTime(snd.length);
+			}
+			
+			public function formatTime(time:Number):String
+			{
+				var totsec:int = Math.round(time/1000);
+				var sec:String = "0" + totsec % 60;
+				var min:String = "0" + Math.floor(totsec/60);
+				return min.substr(-2) + ":" + sec.substr(-2);
+			}
+			
+			private function enablePosition(enable:Boolean):void
+			{
+				if(enable)
+				{
+					addEventListener(Event.ENTER_FRAME, run)				
+				}
+				else
+				{
+					removeEventListener(Event.ENTER_FRAME, run);
+				}
+			}
+			
+			private function update(newItem:Boolean = false):void
+			{
+				//play.label = "p"+playlist.dataProvider.length;
+				var isPlaying:Boolean = (model.playItem != null)
+				if(playlist.dataProvider.length == 0 && !newItem)
+				{
+					play.enabled = false;
+					stop.enabled = false;
+					pause.enabled = false;
+					previous.enabled = false;
+					next.enabled = false;
+				}
+				else
+				{
+					play.enabled = playlist.dataProvider.length + newItem?1:0 > 1;
+					stop.enabled = isPlaying;
+					pause.enabled = isPlaying && (pausePosition==-1);
+					previous.enabled = (playlist.dataProvider.length + newItem?1:0 > 2);
+					next.enabled = (playlist.dataProvider.length + newItem?1:0 > 2);
+				}
+				
+				enablePosition(isPlaying)
+			}
+			
+			private function changeVolume(event:SliderEvent):void
+			{
+				channel.soundTransform = new SoundTransform(volume.value);
+			}
+			
+			private function songClick():void
+			{
+				var date:Date = new Date();
+
+				if(date.getTime() - clickTime < 250)
+				{
+					stopSound();
+					model.playItem = playlist.selectedItem;
+					update();
+				}
+				clickTime = date.getTime();
+			}
+			
+			private function setPlaylist(name:String):void
+			{
+				var songids:Array = model.playlists[name];
+
+				if(name == "local")
+				{
+					model.playlist_active_ac = new ArrayCollection(model.playlist_local);
+				}
+				else
+				{
+					if(oldPlaylist == "local") model.playlist_local = playlist.dataProvider.source;
+					var songs:Array = new Array(songids.length);
+					var allsongs:Array = model.all_songs_arr;
+					
+					for(var i:int = 0;i<songids.length; i++)
+					{
+						var id:String = songids[i];
+						for(var j:int = 0;j<allsongs.length;j++)
+						{
+							if(allsongs[j]['id'] == id)
+							{
+								songs[i] = allsongs[j];
+								break;
+							}
+						}
+					}
+					model.playlist_active_ac = new ArrayCollection(songs);
+				}
+				oldPlaylist = name;
+			}
+		]]>
+	</mx:Script>
+	<mx:VBox height="100%" width="100%">
+		<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml" width="400" height="150">
+			<mx:HSlider x="14" y="53" width="260" id="position" labels="[position]"  mouseDown="startDragPosition()" mouseUp="stopDragPosition()" maximum="1"/>
+			<mx:HSlider x="10" y="97" width="260" id="volume" labels="[volume]"  change="changeVolume(event)" maximum="1" value="1"/>
+			<mx:Label x="282" y="71" id="pos" />
+			<mx:Button x="14" y="23" label="play" id="play" click="playSound()"/>
+			<mx:Button x="72" y="23" label="stop" id="stop" click="stopSound()"/>
+			<mx:Button x="131" y="23" label="pause" id="pause" click="pauseSound()"/>
+			<mx:Button x="199" y="23" label="previous" id="previous" click="playNext(-1)"/>
+			<mx:Button x="282" y="23" label="next" id="next" click="playNext(1)"/>
+		</mx:Canvas>
+	    <mx:Canvas width="100%" height="25">
+	        <mx:Text text="Playlist"/>
+	        <mx:DataGrid right="10" dropEnabled="true"  top="0">
+	        	<mx:columns>
+	            	<mx:DataGridColumn headerText="Trash" />
+	           	</mx:columns>
+	        </mx:DataGrid>
+	        <mx:CheckBox id="random_cb" x="131" label="random" top="0"/>
+	    </mx:Canvas>
+		<mx:DataGrid
+			id="playlist" y="0" width="100%" height="100%" 
+			dragEnabled="true" dropEnabled="true" dragMoveEnabled="true" allowMultipleSelection="true"
+			dataProvider="{model.playlist_active_ac}" 
+			itemClick="songClick()" 
+			dragDrop="playListDrop(event)">
+            <mx:columns>
+                <mx:DataGridColumn headerText="Artist" dataField="artist"/>
+                <mx:DataGridColumn headerText="Title" dataField="title"/>
+            </mx:columns>
+        </mx:DataGrid>
+		<mx:Canvas width="100%" height="60">
+			<mx:ComboBox id="playlist_dd" x="98" y="0" dataProvider="{model.playlistNames}" change="setPlaylist(event.target.value as String)"></mx:ComboBox>
+			<mx:TextInput id="newname_ti" x="98" y="28" width="138"/>
+			<mx:Button id="save_btn" x="244" y="28" label="save" click="dispacher.dispatchEvent(new SavePlaylistEvent(playlist_dd.value as String, newname_ti.text))"/>
+			<mx:Label x="10" y="2" text="select playlist"/>
+			<mx:Label x="10" y="27" text="save as new"/>
+			<mx:Button x="{Math.max(playlist_dd.x + playlist_dd.width+10, save_btn.x)}" y="0" label="Clear" click="model.playlist_active_ac = new ArrayCollection()"/>
+		</mx:Canvas>
+	</mx:VBox>
+</mx:Canvas>

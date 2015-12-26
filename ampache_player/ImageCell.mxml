@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml" width="130" height="130">
+	<mx:Script>
+		<![CDATA[
+			import se.superkrut.player.model.PlayerModelLocator;
+			
+			[Bindable]
+			private var model:PlayerModelLocator = PlayerModelLocator.getInstance();
+		]]>
+	</mx:Script>
+	<mx:Image 
+		 width="128" height="128" 
+		 verticalAlign="middle" horizontalAlign="left" 
+		 scaleContent="false" maintainAspectRatio="true"
+		 source="assets.php?user={model.user.username}&amp;password={model.user.password}&amp;type=cover&amp;id={data.id}" />
+</mx:Canvas>

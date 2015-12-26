@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml">
+	<mx:Script>
+		<![CDATA[
+			import se.superkrut.player.events.LoadSongsEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import se.superkrut.player.model.PlayerModelLocator;
+
+			[Bindable]
+			private var model:PlayerModelLocator = PlayerModelLocator.getInstance();
+			private var dispacher:CairngormEventDispatcher = CairngormEventDispatcher.getInstance();
+		]]>
+	</mx:Script>
+	<mx:Button x="39" y="33" label="Update Catalog" click="dispacher.dispatchEvent(new LoadSongsEvent(true))"/>
+	<mx:Label x="39" y="75" text="Visualisation" fontWeight="bold"/>
+	<mx:ComboBox x="39" y="101" dataProvider="{model.settings.visualisations}" selectedIndex="{model.settings.activeIndex}" change="model.settings.activeVisualisation = event.target.value"></mx:ComboBox>
+	<mx:Label x="39" y="142" text="number of random adds" fontWeight="bold"/>
+	<mx:TextInput x="39" y="168" width="77" text="{model.settings.random_adds}" change="model.settings.random_adds = parseInt(event.target.text)"/>
+</mx:Canvas>

@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml" width="400" height="300">
+	<mx:Script>
+		<![CDATA[
+			import mx.charts.renderers.TriangleItemRenderer;
+			import mx.events.ListEvent;
+			import se.superkrut.player.events.AddRandomEvent;
+			import se.superkrut.player.events.SearchEvent;
+			import se.superkrut.player.events.SongSelectEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import se.superkrut.player.model.PlayerModelLocator;
+
+			private static var CLICKDELAY:int = 250;
+		
+			[Bindable]
+			private var model:PlayerModelLocator = PlayerModelLocator.getInstance();
+			private var dispacher:CairngormEventDispatcher = CairngormEventDispatcher.getInstance();
+			
+			private var clickTime:Number = 0;
+			private var doubleClickTime:Number = 0;
+			private var waitTimer:Timer;
+			private var selectedItem:Object;
+			
+			private function itemClickHandler(listEvent:ListEvent):void
+			{
+				if(selectedItem != listEvent.currentTarget.selectedItem) clear();
+				selectedItem = listEvent.currentTarget.selectedItem;
+				var date:Date = new Date();
+				
+				if(clickTime == 0 && doubleClickTime == 0) //first click
+				{ 
+					model.selectedElement = selectedItem
+					clickTime = date.getTime();				
+				}
+				else if(date.getTime() - clickTime < CLICKDELAY && doubleClickTime == 0)
+				{
+					clickTime = 0;
+					startClearTimer();
+							
+			        doubleClickTime = date.getTime();
+				}
+				else if(date.getTime() - doubleClickTime < CLICKDELAY)
+				{
+					var id:int = selectedItem.album_id;
+					var songs:Array = model.albums_hash[id];
+
+					for(var j:int = 0;j<songs.length;j++)
+					{
+						var song:Object = songs[j];
+						model.playlist_active_ac.addItem(song);
+					}		
+					clear();
+				}
+			}
+
+			private function timerHandler(e:*):void
+			{
+				model.playlist_active_ac.addItem(model.selectedElement);
+				
+				if(model.playlist_active_ac.length == 1)
+				{
+					model.playItem = model.selectedElement;
+				}
+
+				clear();
+			}
+			
+			private function startClearTimer():void
+			{
+				waitTimer = new Timer(CLICKDELAY + 10, 1);
+		        waitTimer.addEventListener(TimerEvent.TIMER, timerHandler);
+		        waitTimer.start();
+			}
+			
+			private function clear():void
+			{
+				clickTime = 0;
+				doubleClickTime = 0;
+				
+				if(waitTimer != null)
+				{
+					waitTimer.stop();
+				}
+			}
+		]]>
+	</mx:Script>
+	 <mx:DataGrid 
+    	id="songs_grid" x="0" y="30" width="100%" height="100%" 
+        dragEnabled="true" 
+        allowMultipleSelection="true" 
+    	dataProvider="{model.songs_ac}" 
+    	itemClick="itemClickHandler(event)" >
+        <mx:columns>
+            <mx:DataGridColumn headerText="Artist" dataField="artist"/>
+            <mx:DataGridColumn headerText="Album" dataField="album"/>
+            <mx:DataGridColumn headerText="Title" dataField="title"/>
+            <mx:DataGridColumn headerText="Genre" dataField="genre"/>
+        </mx:columns>
+    </mx:DataGrid>
+    <mx:Label id="filter_label" text="Filter:" left="10" top="0" />
+	<mx:TextInput id="filter" x="{filter_label.x + filter_label.width}" top="0" change="dispacher.dispatchEvent(new SearchEvent(filter.text))"/>
+	<mx:Label id="show_label" x="{filter.x + filter.width + 10}" text="Showing {model.songs_ac.length} of {model.all_songs_arr.length} songs." top="0" />
+    <mx:Button right="10" top="0" label="Add {model.settings.random_adds} randoms" click="dispacher.dispatchEvent(new AddRandomEvent())"/>
+</mx:Canvas>
